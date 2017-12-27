@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"github.com/gorilla/mux"
 )
 
 func serveHome(w http.ResponseWriter, r *http.Request) {
@@ -29,13 +30,17 @@ func main() {
 	a := newCmdWatcher(hub)
 	a.addComd(conf.Cmds[0])
 	go hub.run()
+	mainRouter := mux.NewRouter()
+	apiRouter := mainRouter.PathPrefix("/api").Subrouter()
+	api:=newApi(apiRouter, &conf)
+	api.init()
+	mainRouter.HandleFunc("/", serveHome)
 	fs := http.FileServer(http.Dir("static"))
-	http.HandleFunc("/", serveHome)
-	http.Handle("/static/", http.StripPrefix("/static/", fs))
-	http.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+	mainRouter.PathPrefix("/static/").Handler(http.StripPrefix("/static/", fs))
+	mainRouter.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
 		serveWs(hub, w, r)
 	})
-	err := http.ListenAndServe(*addr, nil)
+	err := http.ListenAndServe(*addr, mainRouter)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
 	}

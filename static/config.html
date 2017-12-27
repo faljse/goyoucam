@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Webauslage</title>
+    <link rel='stylesheet' href='/static/bulma.css' />
+    <script src="/static/vue.js"></script>
+</head>
+<style>
+    html, body, #app {
+        height: 100%;
+    }
+    #app {
+        min-height: 100%;
+    //display: flex;
+    //flex-direction: column;
+    }
+    .main-content {
+    //flex: 1;
+    }
+    .footer {
+        margin-top: -12px;
+    }
+    .section {
+        padding: 1em;
+    }
+    @media screen and (max-width: 768px) {
+        #menu-toggle:checked + .nav-menu {
+            display: block;
+        }
+    }
+</style>
+
+<body>
+    <div id="app">
+        <section class="main-content columns is-fullheight">
+            <aside class="column is-2 is-narrow-mobile is-fullheight section is-hidden-mobile">
+                <ul class="menu-list">
+                    <li>
+                        <a href="#" class="">
+                            <span class="icon"><i class="fa fa-home"></i></span> Home
+                        </a>
+                    </li>
+                    <li>
+                        <a href="#" class="is-active">
+                            <span class="icon"><i class="fa fa-table"></i></span> Links
+                        </a>
+
+                        <ul>
+                            <div :key="command.description" v-for="command in commands" class="api list-complete-item">
+                            <li>
+                                <a href="#">
+                                    <span class="icon is-small"><i class="fa fa-link"></i></span> {{ command.description }}
+                                </a>
+                            </li>
+                            </div>
+
+                        </ul>
+                    </li>
+                    <li>
+                        <a href="#" class="">
+                            <span class="icon"><i class="fa fa-info"></i></span> About
+                        </a>
+                    </li>
+                </ul>
+            </aside>
+
+            <div class="container column is-10">
+                <div class="section">
+
+                    <div class="card">
+                        <div class="card-header"><p class="card-header-title">Header</p></div>
+                        <div class="card-content"><div class="content">Content</div></div>
+                    </div>
+                    <br />
+
+
+                </div>
+            </div>
+
+        </section>
+
+        <footer class="footer is-hidden">
+            <div class="container">
+                <div class="content has-text-centered">
+                    <p>Hello</p>
+                </div>
+            </div>
+        </footer>
+
+    </div>
+</body>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            commands: [],
+        },
+        created: () => {
+            listCommands();
+            // getCredentials();
+            // getResolutions("CEA");
+            // getResolutions("DMT");
+            // getCurrentDisplay();
+        }
+    });
+
+    function listCommands(type) {
+        var self = this;
+        fetch('/api/listCommands', {
+            method: 'get'
+        }).then(function (response) {
+            return response.json();
+        }).then(function (json) {
+            self.app.commands = json;
+        }).catch(function (err) {
+            console.log(err);
+        });
+    };
+
+</script>
+
+</html>

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Webauslage</title>
+    <link rel='stylesheet' href='/static/bulma.css' />
+    <script src="/static/vue.js"></script>
+</head>
+<style>
+    .list-complete-item {
+        transition: all 2s;
+        /*display: inline-block;*/
+        margin-right: 10px;
+    }
+
+    .list-complete-enter,
+    .list-complete-leave-to {
+        opacity: 0;
+        transform: translateX(30px);
+    }
+
+    .list-complete-leave-active {
+        transform: translateX(30px);
+        position: absolute;
+    }
+
+    .progress::-webkit-progress-value {
+        transition: width 2.0s linear;
+    }
+
+    .labelwhite {
+        color: whitesmoke;
+        display: block;
+        font-size: 1rem;
+        font-weight: 700;
+    }
+</style>
+
+<body>
+    <div id="app">
+        <div class="columns">
+            <div class="column">
+                <section class="hero is-fullheight is-dark is-bold">
+                    <div class="hero-body">
+                        <div class="container">
+                            <div class="columns is-vcentered">
+                                <div class="column is-4 is-offset-2">
+                                    <h1 class="title">
+                                        <b>Webauslage Setup</b>
+                                    </h1>
+                                    <div class="box">
+                                        <label class="label">SSID</label>
+                                        <p class="control">
+                                            <input v-model="credentials.ssid" class="input" type="text" placeholder="Your WiFi network name" disabled>
+                                        </p><br/>
+                                        <label class="label">URL</label>
+                                        <p class="control">
+                                            <input v-model="credentials.url" class="input" type="text" placeholder="http://orf.at" disabled>
+                                        </p>
+                                        <hr>
+                                        <i id="spinner" class="fa fa-refresh fa-spin fa-3x fa-fw" style="color:black;display:none"></i>
+                                        <span class="sr-only">Loading...</span>
+                                    </div>
+                                    <p class="has-text-centered">
+                                        <a href="#" v-on:click='showDisplaySettings = true'>Display settings</a> | <a href="#"
+                                            v-on:click='showConnectionSettings = true'>Connection setup</a>
+                                    </p>
+                                </div>
+                                <div class="column is-4 is-offset-1 is-fullheight">
+                                    <h3 class="subtitle" v-if="screenshotURL">
+                                        Live
+                                    </h3>
+                                    <div class="box" v-if="screenshotURL">
+
+                                        <figure class="image is-512x512">
+                                            <img :src="screenshotURL">
+                                        </figure>
+                                    </div>
+                                    <div class="status-header">
+                                        <div class="title">Commands</div>
+                                    </div>
+                                    <hr/>
+                                    <transition-group name="flip-list" tag="div" class="status-list">
+                                        <div v-bind:key="command.description" v-for="command in commands" class="api list-complete-item">
+                                            <div class="labelwhite">{{ command.description }}</div>
+                                        </div>
+                                    </transition-group>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div v-if="showDisplaySettings" class="modal is-active">
+                <div class="modal-background"></div>
+                <div class="modal-card">
+                    <header class="modal-card-head">
+                        <p class="modal-card-title">Display settings</p>
+                        <button class="delete" v-on:click='showDisplaySettings = false'></button>
+                    </header>
+                    <section class="modal-card-body">
+                        <div v-if="currentDisplay" class="field">
+                            <p class="control">
+                                <input class="input" type="text" placeholder="Disabled input" :value="currentDisplay" disabled>
+                            </p>
+                        </div>
+                        <div class="field">
+                            <span class="select">
+                        <select v-model="resolution" v-if="resolution && resCEA && resDMT">
+                            <option  value="0/0">
+                            Resolution: Auto
+                            </option>
+
+                            <option  v-for="res in resCEA" :value="1 + '/' + res.code">
+                                {{ res.width }}x{{ res.height }} {{ res.rate }}{{ res.scan }} {{ res.aspect_ratio }} (CEA)
+                            </option>
+                            <option  v-for="res in resDMT" :value="2 + '/' + res.code">
+                                {{ res.width }}x{{ res.height }} {{ res.rate }}{{ res.scan }} {{ res.aspect_ratio }} (DMT)
+                            </option>
+                        </select>
+                            </span>
+                        </div>
+                        <div class="field">
+                            <span class="select">
+                            <select v-model="rpiconfig.hdmi_pixel_encoding">
+                                <option :value="0">HDMI Encoding: default (RGB limited for CEA, RGB full for DMT)</option>
+                                <option :value="1">RGB limited (16-235)</option>
+                                <option :value="2">RGB full (0-255)</option>
+                                <option :value="3">YCbCr limited (16-235)</option>
+                                <option :value="4">YCbCr full (0-255)</option>
+                            </select>
+                        </span>
+                        </div>
+                        <div class="field">
+                            <span class="select">
+                            <select v-model="rpiconfig.display_rotate">
+                                <option :value="0">Rotation: Normal</option>
+                                <option :value="1">90°</option>
+                                <option :value="2">180°</option>
+                                <option :value="3">270°</option>
+                                <option :value="0x10000">horizontal flip</option>
+                                <option :value="0x20000">vertical flip</option>
+                            </select>
+                        </span>
+                        </div>
+                        <div class="field">
+                            <p class="control">
+                                <label class="checkbox">
+                            <input type="checkbox" :true-value="1" :false-value="0" v-model="rpiconfig.hdmi_disable_overscan">
+                            Disable Overscan.
+                            </label>
+                            </p>
+                        </div>
+                        <div class="field">
+                            <p class="control">
+                                <label class="checkbox">
+                            <input type="checkbox" :true-value="1" :false-value="0" v-model="rpiconfig.hdmi_force_hotplug">
+                            Force HDMI Hotplug
+                            </label>
+                            </p>
+                        </div>
+                        <div class="field">
+                            <p class="control">
+                                <label class="checkbox">
+                            <input type="checkbox" :true-value="1" :false-value="0" v-model="rpiconfig.hdmi_safe">
+                            HDMI Safe mode
+                            </label>
+                            </p>
+                        </div>
+                        <div class="field">
+                            <span class="select">
+                            <select v-model="rpiconfig.hdmi_drive">
+                                <option :value="0">Hdmi Drive: Auto</option>
+                                <option :value="1">DVI Mode (no sound)</option>
+                                <option :value="2">HDMI mode (sound if supported)</option>
+                            </select>
+                        </span>
+                        </div>
+                        <div class="field">
+                            <span class="select">
+                            <select v-model="rpiconfig.hdmi_boost">
+                                <option :value="5">5 (Default)</option>
+                                <option :value="6">6</option>
+                                <option :value="7">7</option>
+                                <option :value="8">8</option>
+                                <option :value="9">9</option>
+                                <option :value="10">10 (WARN)</option>
+                                <option :value="11">11 (WARN)</option>
+                            </select>
+                        </span>
+                        </div>
+                        </span>
+                    </section>
+                    <footer class="modal-card-foot">
+                        <a class="button is-success" v-on:click="save()">Save & reboot</a>
+                        <a class="button" v-on:click='showDisplaySettings = false'>Cancel</a>
+                    </footer>
+                </div>
+            </div>
+            <div v-if="showConnectionSettings" class="modal is-active">
+                <div class="modal-background"></div>
+                <div class="modal-card">
+                    <header class="modal-card-head">
+                        <p class="modal-card-title">Network</p>
+                        <button class="delete" v-on:click='showConnectionSettings = false'></button>
+                    </header>
+                    <section class="modal-card-body">
+                        <label class="label">SSID</label>
+                        <p class="control">
+                            <input v-model="credentials.ssid" class="input" type="text" placeholder="Your WiFi network name">
+                        </p>
+                        <label class="label">Passphrase</label>
+                        <p class="control">
+                            <input v-model="credentials.passphrase" class="input" type="password" placeholder="●●●●●●●">
+                        </p>
+                        <label class="label">URL</label>
+                        <p class="control">
+                            <input v-model="credentials.url" class="input" type="text" placeholder="http://orf.at">
+                        </p>
+                        <i id="spinner" class="fa fa-refresh fa-spin fa-3x fa-fw" style="color:black;display:none"></i>
+                        <span class="sr-only">Loading...</span>
+                    </section>
+                    <footer class="modal-card-foot">
+                        <div class="field">
+                            <a class="button is-success" @click="connect()" :disabled="(!credentials.ssid || !credentials.passphrase || !credentials.url)">Connect</a>
+                            <a class="button" @click='showConnectionSettings = false'>Cancel</a>
+                            <p v-if="connError" class="help is-danger"> {{ connError }} </p>
+                    </footer>
+                    </div>
+                </div>
+            </div>
+        </div>
+</body>
+<script>
+    var app = new Vue({
+        el: '#app',
+        data: {
+            commands: [],
+            credentials: {
+                ssid: "",
+                passphrase: ""
+            },
+            rpiconfig: {},
+            resCEA: null,
+            resDMT: null,
+            resolution: null,
+            currentDisplay: null,
+            url: "",
+            showDisplaySettings: false,
+            showConnectionSettings: false,
+            screenshotURL: null,
+            connError: null
+        },
+        created: () => {
+            listCommands();
+            // getCredentials();
+            // getResolutions("CEA");
+            // getResolutions("DMT");
+            // getCurrentDisplay();
+        },
+        methods: {
+            save() {
+                console.log("save");
+                var hdmi_group = this.resolution.split("/")[0];
+                var hdmi_mode = this.resolution.split("/")[1];
+                app.rpiconfig.hdmi_group = +hdmi_group;
+                app.rpiconfig.hdmi_mode = +hdmi_mode;
+                fetch('/rpiconfig', {
+                    method: 'put',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(app.rpiconfig)
+                }).then((response) => {
+                    return response.json();
+                }).then((data) => {
+                    console.log(data);
+                });
+            },
+            getClass(percent) {
+                if (percent > 50)
+                    return "is-success";
+                else if (percent > 30)
+                    return "is-warning";
+                else
+                    return "is-danger";
+            },
+            connect() {
+                if (!this.credentials.ssid || !this.credentials.passphrase || !this.credentials.url)
+                    return
+                this.connError = null;
+                fetch('/config', {
+                    method: 'post',
+                    headers: {
+                        'Accept': 'application/json, text/plain, */*',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(this.credentials)
+                }).then((response) => {
+                    console.dir(response);
+                    return response.json();
+                }).then((response) => {
+                    console.log(response);
+                    if (response.error) {
+                        this.connError = response.error;
+                        return;
+                    }
+                    this.connError = null;
+                    this.showConnectionSettings = false;
+                });
+            }
+        }
+    });
+
+    function getCurrentDisplay() {
+        var self = this;
+        fetch('currentDisplay', {
+            method: 'get'
+        }).then(function (response) {
+            return response.json();
+        }).then(function (json) {
+            self.app.currentDisplay = json;
+        }).catch(function (err) {
+            console.log(err);
+        });
+    }
+
+    function listCommands(type) {
+        var self = this;
+        fetch('/api/listCommands', {
+            method: 'get'
+        }).then(function (response) {
+            return response.json();
+        }).then(function (json) {
+            self.app.commands = json;
+        }).catch(function (err) {
+            console.log(err);
+        });
+    };
+
+    function getRPIConfig() {
+        console.log("getRPIConfig");
+        var self = this;
+        fetch('rpiconfig', {
+            method: 'get'
+        }).then(function (response) {
+            return response.json();
+        }).then(function (json) {
+            self.app.rpiconfig = json;
+            console.log(self.app.rpiconfig);
+            console.log(json);
+            if (json.hdmi_group != undefined && json.hdmi_mode != undefined) {
+                self.app.resolution = ("" + json.hdmi_group + "/" + json.hdmi_mode);
+            }
+            else {
+                self.app.resolution = "0/0";
+            }
+        }).catch(function (err) {
+            console.log(err);
+        });
+
+    };
+    setInterval(reloadImage, 9200);
+    function reloadImage() {
+        if (location.hostname === "localhost" || location.hostname === "127.0.0.1")
+            return;
+        self.app.screenshotURL = "screenshot/" + new Date().getTime();
+    }
+
+    function getCredentials() {
+        var self = this;
+        fetch('/config')
+            .then(
+            function (response) {
+                if (response.status !== 200) {
+                    console.log('Looks like there was a problem. Status Code: ' +
+                        response.status);
+                    return;
+                }
+                response.json().then(function (data) {
+                    app.credentials.ssid = data.ssid;
+                    app.credentials.passphrase = data.passphrase;
+                    app.credentials.url = data.url;
+                });
+            }
+            )
+            .catch(function (err) {
+                console.log('Fetch Error :-S', err);
+            });
+    }
+
+</script>
+
+</html>
